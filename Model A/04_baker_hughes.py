@@ -17,7 +17,7 @@ Before running:
   2. pip install pandas openpyxl pyxlsb matplotlib
 """
 
-#1. Imports, folders and settings
+# %% 1. Imports, folders and settings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -32,14 +32,24 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def find(pattern: str) -> list[Path]:
-    files = sorted(BH_DIR.glob(pattern))
+def find(*must_contain: str, ext: str) -> list[Path]:
+    """Find files by keywords, ignoring spaces/underscores/case in the
+    filename. Baker Hughes (and downloaders) are inconsistent about
+    which they use, so this matches on meaning, not exact spelling."""
+    files = []
+    for f in BH_DIR.iterdir():
+        name = f.name.lower().replace("_", " ")
+        if f.suffix.lower() == ext and all(k in name for k in must_contain):
+            files.append(f)
     if not files:
-        raise SystemExit(f"No file matching '{pattern}' in {BH_DIR}")
-    return files
+        raise SystemExit(
+            f"No file containing {must_contain} ({ext}) in {BH_DIR}\n"
+            f"Files actually there: {[f.name for f in BH_DIR.iterdir()]}"
+        )
+    return sorted(files)
 
 
-#2. North America: oldest archive (.xlsb, 1987/2000 to Mar 2024)
+# %% 2. North America: oldest archive (.xlsb, 1987/2000 to Mar 2024)
 # This file has a clean weekly table for each country: Date, Oil, Gas,
 # Misc, Total. Dates are stored as Excel day numbers, so they need
 # converting.
@@ -51,7 +61,7 @@ def read_xlsb_split(path: Path, sheet: str) -> pd.Series:
     return pd.Series(pd.to_numeric(df["total"]).values, index=dates)
 
 
-xlsb = find("*North_America_Rotary_Rig_Count*.xlsb")[0]
+xlsb = find("rotary", ext=".xlsb")[0]
 na_old = pd.DataFrame({
     "us": read_xlsb_split(xlsb, "US Oil & Gas Split"),
     "canada": read_xlsb_split(xlsb, "Canada Oil & Gas Split"),
@@ -69,7 +79,7 @@ def read_nam_report(path: Path) -> pd.DataFrame:
     return out.rename(columns={"UNITED STATES": "us", "CANADA": "canada"})
 
 
-na_new = [read_nam_report(p) for p in find("*North_America_Rig_Count_Report.xlsx")]
+na_new = [read_nam_report(p) for p in find("north america", "report", ext=".xlsx")]
 
 # Stitch: newest file wins where they overlap.
 na = na_old
@@ -86,10 +96,10 @@ for part in na_new:
         print(f"Overlap check ({len(both)} weeks), max difference:\n{diff}\n")
 
 
-# 5. International: oldest archive (1975 to Mar 2024)
+# %% 5. International: oldest archive (1975 to Mar 2024)
 # One block per year, a row per month, with a "Total Intl." column.
 # Total Intl. already excludes the US and Canada.
-old_path = find("*Worldwide_Rig_Count_Jan_2007*.xlsx")[0]
+old_path = find("world", "2007", ext=".xlsx")[0]
 old = pd.read_excel(old_path, header=None)
 rows, year = [], None
 for _, r in old.iterrows():
@@ -101,7 +111,7 @@ for _, r in old.iterrows():
 intl_old = pd.Series(dict(rows)).sort_index()
 
 
-# 6. International: new-format reports (2013 onwards)
+# %% 6. International: new-format reports (2013 onwards)
 # IMPORTANT: from January 2024 Baker Hughes changed how it counts Saudi
 # Arabia (it now counts "operating" rigs, roughly 300 instead of ~90).
 # Left in, that would look like a sudden 25% jump in world drilling
@@ -118,7 +128,7 @@ def read_ww_report(path: Path) -> tuple[pd.Series, pd.Series]:
     return ex_saudi[ex_saudi > 0], saudi  # future months come through as zeros
 
 
-ww_pairs = [read_ww_report(p) for p in find("*WorldWide_Rig_Count_Report.xlsx")]
+ww_pairs = [read_ww_report(p) for p in find("world", "report", ext=".xlsx")]
 intl_new, saudi_new = ww_pairs[0]
 for ex_saudi, saudi in ww_pairs[1:]:
     both = ex_saudi.index.intersection(intl_new.index)
@@ -170,7 +180,7 @@ intl = pd.concat([
 intl.name = "intl_rigs"
 
 
-#8. Save the stitched raw series
+# %% 8. Save the stitched raw series
 na.to_csv(RAW_DIR / "rigs_north_america_weekly_raw.csv")
 intl.to_csv(RAW_DIR / "rigs_international_monthly_raw.csv")
 print("NA range:", na.index.min().date(), "to", na.index.max().date())
@@ -188,7 +198,7 @@ plt.savefig(PROCESSED_DIR / "rigs_raw_plot.png", dpi=150)
 plt.show()
 
 
-# 9. North America weekly features
+# %% 9. North America weekly features
 # Holiday weeks are sometimes published Wed/Thu. Snap everything to the
 # week-ending Friday. Release is Friday noon Central Time, before Brent
 # settles (13:30 Central), so it is known on the same Friday.
@@ -205,7 +215,7 @@ canada_4w = naw["canada"].rolling(4).mean()
 features["canada_rigs_change_52w"] = canada_4w.pct_change(52)
 
 
-# 10. International monthly -> weekly, with publication lag
+# %% 10. International monthly -> weekly, with publication lag
 # Released in the first week of the following month (since Feb 2020).
 # To be safe, month M is only used from the 15th of month M+1.
 m = intl.to_frame()
