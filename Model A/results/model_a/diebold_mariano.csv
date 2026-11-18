@@ -1,0 +1,9 @@
+model,loss,vs,dm_stat,p_value
+random_forest,hit_miss,baseline_last_week,-0.34504449933557724,0.634917790219763
+random_forest,brier,baseline_climatology,0.9637021815085728,0.16776378924611324
+xgboost,hit_miss,baseline_last_week,-1.1116244372307142,0.866659618815117
+xgboost,brier,baseline_climatology,-7.828283334837737,0.9999999999999909
+lightgbm,hit_miss,baseline_last_week,-1.1179160164145745,0.868007084451527
+lightgbm,brier,baseline_climatology,-9.431678057072853,1.0
+ensemble,hit_miss,baseline_last_week,-1.2761565645227022,0.8988385850881759
+ensemble,brier,baseline_climatology,-5.530896682278771,0.9999999774979387

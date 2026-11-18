@@ -40,3 +40,5 @@ vix
 vix_change_5d
 inflation_yoy
 inflation_change_3m
+basis_pct
+basis_change_4w

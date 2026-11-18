@@ -14,7 +14,7 @@ What this does:
 Run 01-05 first. No downloads here, it only reads your saved files.
 """
 
-#1. Imports and settings
+# %% 1. Imports and settings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -23,8 +23,7 @@ import pandas as pd
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 
-THRESHOLD = 0.015   # +/-1.5%, from your project plan
-HORIZON = 5         # trading days
+from config import HORIZON, THRESHOLD  # +/-1.5% over 5 trading days, shared with B and C
 
 FEATURE_FILES = {
     "price": "brent_price_features_weekly.csv",
@@ -32,10 +31,11 @@ FEATURE_FILES = {
     "opec": "opec_features_weekly.csv",
     "rigs": "rig_features_weekly.csv",
     "macro": "macro_features_weekly.csv",
+    "basis": "brent_basis_features_weekly.csv",   # from 01b_futures_basis.py
 }
 
 
-# 2. Load and join the five feature files
+# %% 2. Load and join the five feature files
 parts = {}
 for name, file in FEATURE_FILES.items():
     df = pd.read_csv(PROCESSED_DIR / file, parse_dates=["date"], index_col="date")
@@ -60,7 +60,7 @@ print(f"\nAfter joining: {len(features)} weeks, {features.shape[1]} features")
 print("Range:", features.index.min().date(), "to", features.index.max().date())
 
 
-#3. Build the target from DAILY prices
+# %% 3. Build the target from DAILY prices
 # Your plan defines the target over the next FIVE TRADING DAYS, so it's
 # built from the daily file, not by comparing one Friday to the next
 # (holiday weeks would make those 4 days, not 5).
@@ -92,7 +92,7 @@ mismatch = (origin_close - close_weekly.reindex(origin_close.index)).abs().max()
 print(f"\nOrigin price vs price file, max difference: {mismatch:.6f} (should be 0)")
 
 
-#4. Drop weeks without a target yet
+# %% 4. Drop weeks without a target yet
 # The most recent week has no "next 5 days" yet, so no label. Keep it
 # aside: it's what you'd use to make a live prediction later.
 latest = data[data["target"].isna()]
@@ -100,7 +100,7 @@ data = data.dropna(subset=["target"])
 print(f"Weeks with a target: {len(data)}   (no target yet: {list(latest.index.date)})")
 
 
-# 5. Checks
+# %% 5. Checks
 # Missing weeks: every Friday between start and end should be present.
 all_fridays = pd.date_range(data.index.min(), data.index.max(), freq="W-FRI")
 missing = all_fridays.difference(data.index)
@@ -117,7 +117,7 @@ print("\nClass balance:")
 print(pd.DataFrame({"weeks": counts, "share": (counts / len(data)).round(3)}))
 
 
-#6. Save
+# %% 6. Save
 out = PROCESSED_DIR / "model_a_dataset.csv"
 data.to_csv(out)
 latest.drop(columns=["fwd_return_5d", "target"]).to_csv(PROCESSED_DIR / "model_a_latest_week.csv")
